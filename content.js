@@ -35,29 +35,46 @@
     }
   };
 
+  // Score range guards — eliminate false positives (e.g. "Section 3-4", phone numbers)
+  function isValidBasketballScore(match) {
+    const nums = match.match(/\d+/g);
+    if (!nums || nums.length < 2) return false;
+    const a = parseInt(nums[0], 10), b = parseInt(nums[1], 10);
+    const hi = Math.max(a, b), lo = Math.min(a, b);
+    return hi >= 60 && hi <= 200 && (hi - lo) <= 80;
+  }
+
+  function isValidSoccerScore(match) {
+    const nums = match.match(/\d+/g);
+    if (!nums || nums.length < 2) return false;
+    const a = parseInt(nums[0], 10), b = parseInt(nums[1], 10);
+    return a <= 20 && b <= 20;
+  }
+
+  const SCORE_VALIDATORS = {
+    basketball: isValidBasketballScore,
+    soccer: isValidSoccerScore
+  };
+
   // Score patterns for each sport
   const SCORE_PATTERNS = {
     basketball: [
-      // "Lakers 110 - Warriors 98" or "Lakers 110, Warriors 98"
-      /\b(?:final[\s:]*)?(\d{2,3})\s*[-–—]\s*(\d{2,3})\b(?:\s*(?:final|ot|2ot|3ot|overtime))?/gi,
       // "Final: 110-98" or "Final Score: 110-98"
       /\bfinal\s*(?:score)?[\s:]*(\d{2,3})\s*[-–—]\s*(\d{2,3})\b/gi,
       // "Score: 110-98" context
       /\bscore\s*[\s:]+(\d{2,3})\s*[-–—]\s*(\d{2,3})\b/gi,
       // Win/loss with score: "won 115-108" "lost 98-112" "beat ... 110-95"
       /\b(?:won|beat|defeated|lost|fell)\s+(?:\S+\s+)?(\d{2,3})\s*[-–—]\s*(\d{2,3})\b/gi,
-      // Inline score format "Lakers (110) Warriors (98)" - less common but valid
-      /\b(\d{2,3})\s*[-–—]\s*(\d{2,3})\s*(?:final|ot|overtime)\b/gi
+      // Trailing final/OT qualifier: "112-98 Final" "112-98 OT"
+      /\b(\d{2,3})\s*[-–—]\s*(\d{2,3})\s*(?:final|ot|2ot|3ot|overtime)\b/gi
     ],
     soccer: [
-      // "Arsenal 2-1 Chelsea" or "Arsenal 2 - 1 Chelsea"
-      /\b(\d)\s*[-–—:]\s*(\d)\b(?!\s*(?:am|pm|:\d{2}))/gi,
       // "FT: 2-1" or "HT: 1-0" or "Full Time: 2-1"
-      /\b(?:ft|ht|ftr|full[\s-]?time|half[\s-]?time|final)[\s:]+(\d)\s*[-–—:]\s*(\d)\b/gi,
+      /\b(?:ft|ht|ftr|full[\s-]?time|half[\s-]?time|final)[\s:]+(\d{1,2})\s*[-–—:]\s*(\d{1,2})\b/gi,
       // "won 3-0" "beat ... 2-1" "lost 0-2"
-      /\b(?:won|beat|defeated|lost|fell)\s+(?:\S+\s+)?(\d)\s*[-–—]\s*(\d)\b/gi,
+      /\b(?:won|beat|defeated|lost|fell)\s+(?:\S+\s+)?(\d{1,2})\s*[-–—]\s*(\d{1,2})\b/gi,
       // Score in parentheses "(2-1)" common in articles
-      /\((\d)\s*[-–—]\s*(\d)\)/g,
+      /\((\d{1,2})\s*[-–—]\s*(\d{1,2})\)/g,
       // "goals: 3-1" or "result: 2-0"
       /\b(?:goals?|result|score)[\s:]+(\d)\s*[-–—:]\s*(\d)\b/gi
     ]
@@ -168,12 +185,14 @@
     if (!sport) return;
 
     const patterns = SCORE_PATTERNS[sport];
+    const validate = SCORE_VALIDATORS[sport];
     let html = escapeHtml(text);
     let hasMatch = false;
 
     for (const pattern of patterns) {
       pattern.lastIndex = 0;
       const newHtml = html.replace(pattern, (match) => {
+        if (!validate(match)) return match; // range guard — skip implausible scores
         hasMatch = true;
         return `<span class="${BLUR_CLASS}" data-sport="${sport}" title="Click to reveal score">${escapeHtml(match)}</span>`;
       });
@@ -428,7 +447,21 @@
     });
   }
 
-  // ─── MutationObserver ─────────────────────────────────────────────────────────
+  // ─── MutationObserver (RAF-debounced) ────────────────────────────────────────
+  // Batches all DOM mutations within one animation frame to prevent thrashing
+  // on heavy sites (infinite scroll, live score widgets, etc.)
+
+  let pendingNodes = [];
+  let rafScheduled = false;
+
+  function flushPendingNodes() {
+    rafScheduled = false;
+    const toProcess = pendingNodes.splice(0);
+    for (const node of toProcess) {
+      processYouTubeThumbnails(node);
+      walkTextNodes(node);
+    }
+  }
 
   function startObserver() {
     if (observer) observer.disconnect();
@@ -437,13 +470,13 @@
       for (const mutation of mutations) {
         for (const node of mutation.addedNodes) {
           if (node.nodeType === Node.ELEMENT_NODE) {
-            // Process new elements
-            setTimeout(() => {
-              processYouTubeThumbnails(node);
-              walkTextNodes(node);
-            }, 100);
+            pendingNodes.push(node);
           }
         }
+      }
+      if (!rafScheduled) {
+        rafScheduled = true;
+        requestAnimationFrame(flushPendingNodes);
       }
     });
 
@@ -496,33 +529,49 @@
     }
   }
 
-  // ─── Listen for settings updates from background ──────────────────────────────
+  // ─── Reactive settings via storage.onChanged ──────────────────────────────────
+  // Fires in content scripts when popup writes to storage.local — no message needed
 
+  const STORAGE_KEY = "scoreblinnSettings";
+
+  browser.storage.onChanged.addListener((changes, area) => {
+    if (area !== "local" || !changes[STORAGE_KEY]) return;
+    const newSettings = changes[STORAGE_KEY].newValue;
+    settings = newSettings;
+    removeAllBlurring();
+    if (observer) {
+      observer.disconnect();
+      observer = null;
+    }
+    if (settings && settings.enabled) {
+      requestAnimationFrame(() => {
+        processPage();
+        startObserver();
+      });
+    }
+  });
+
+  // Also handle explicit message from background (belt-and-suspenders)
   browser.runtime.onMessage.addListener((message) => {
     if (message.type === "SETTINGS_UPDATED") {
-      settings = message.settings;
-      removeAllBlurring();
-      if (observer) {
-        observer.disconnect();
-        observer = null;
-      }
-      if (settings && settings.enabled) {
-        setTimeout(processPage, 50);
-        startObserver();
-      }
+      // storage.onChanged will handle it; this is a no-op safety net
     }
   });
 
   // ─── Bootstrap ───────────────────────────────────────────────────────────────
 
-  browser.runtime.sendMessage({ type: "GET_SETTINGS" }).then((response) => {
-    init(response.settings);
+  browser.storage.local.get(STORAGE_KEY).then((result) => {
+    init(result[STORAGE_KEY]);
   }).catch(() => {
-    // Fallback: try with chrome namespace
-    if (typeof chrome !== "undefined" && chrome.runtime) {
-      chrome.runtime.sendMessage({ type: "GET_SETTINGS" }, (response) => {
-        if (response) init(response.settings);
-      });
-    }
+    // Fallback via background message
+    browser.runtime.sendMessage({ type: "GET_SETTINGS" }).then((response) => {
+      init(response && response.settings);
+    }).catch(() => {
+      if (typeof chrome !== "undefined" && chrome.runtime) {
+        chrome.runtime.sendMessage({ type: "GET_SETTINGS" }, (response) => {
+          if (response) init(response.settings);
+        });
+      }
+    });
   });
 })();

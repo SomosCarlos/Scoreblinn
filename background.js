@@ -36,11 +36,14 @@ const DEFAULT_SETTINGS = {
   showRevealButton: true
 };
 
+// Use storage.local — no iCloud entitlements needed, lower latency on iOS
+const STORAGE_KEY = "scoreblinnSettings";
+
 // Initialize default settings on install
-self.addEventListener("install", () => {
-  browser.storage.sync.get("settings").then((result) => {
-    if (!result.settings) {
-      browser.storage.sync.set({ settings: DEFAULT_SETTINGS });
+browser.runtime.onInstalled.addListener(() => {
+  browser.storage.local.get(STORAGE_KEY).then((result) => {
+    if (!result[STORAGE_KEY]) {
+      browser.storage.local.set({ [STORAGE_KEY]: DEFAULT_SETTINGS });
     }
   });
 });
@@ -48,14 +51,14 @@ self.addEventListener("install", () => {
 // Listen for messages from content scripts or popup
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "GET_SETTINGS") {
-    browser.storage.sync.get("settings").then((result) => {
-      sendResponse({ settings: result.settings || DEFAULT_SETTINGS });
+    browser.storage.local.get(STORAGE_KEY).then((result) => {
+      sendResponse({ settings: result[STORAGE_KEY] || DEFAULT_SETTINGS });
     });
     return true; // keep channel open for async response
   }
 
   if (message.type === "SAVE_SETTINGS") {
-    browser.storage.sync.set({ settings: message.settings }).then(() => {
+    browser.storage.local.set({ [STORAGE_KEY]: message.settings }).then(() => {
       sendResponse({ success: true });
       // Notify all tabs to reapply settings
       browser.tabs.query({}).then((tabs) => {

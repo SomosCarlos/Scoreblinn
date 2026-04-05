@@ -90,10 +90,12 @@
 
   function save() {
     collectSettings();
-    browser.runtime.sendMessage({ type: "SAVE_SETTINGS", settings }).then(() => {
+    // Write directly to storage.local; content scripts respond via storage.onChanged
+    browser.storage.local.set({ [STORAGE_KEY]: settings }).then(() => {
       showSaved();
+      // Also notify via message for tabs that may not have storage.onChanged wired up
+      browser.runtime.sendMessage({ type: "SAVE_SETTINGS", settings }).catch(() => {});
     }).catch(() => {
-      // Fallback for Chrome
       if (typeof chrome !== "undefined" && chrome.runtime) {
         chrome.runtime.sendMessage({ type: "SAVE_SETTINGS", settings }, () => {
           showSaved();
@@ -143,10 +145,21 @@
 
   // ─── Load ─────────────────────────────────────────────────────────────────────
 
+  const STORAGE_KEY = "scoreblinnSettings";
+
   function load() {
-    browser.runtime.sendMessage({ type: "GET_SETTINGS" }).then((response) => {
-      settings = response.settings;
-      renderSettings();
+    // Read directly from storage.local — faster than a background round-trip
+    browser.storage.local.get(STORAGE_KEY).then((result) => {
+      settings = result[STORAGE_KEY];
+      if (!settings) {
+        // Fall back to background for defaults
+        browser.runtime.sendMessage({ type: "GET_DEFAULT_SETTINGS" }).then((r) => {
+          settings = r.settings;
+          renderSettings();
+        });
+      } else {
+        renderSettings();
+      }
     }).catch(() => {
       if (typeof chrome !== "undefined" && chrome.runtime) {
         chrome.runtime.sendMessage({ type: "GET_SETTINGS" }, (response) => {
