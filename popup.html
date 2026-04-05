@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scoreblinn</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="header-logo">
+      <img src="icons/icon32.png" alt="Scoreblinn" class="header-icon" />
+      <span class="header-title">Scoreblinn</span>
+    </div>
+    <label class="master-toggle" title="Enable or disable Scoreblinn">
+      <input type="checkbox" id="masterToggle" />
+      <span class="toggle-track">
+        <span class="toggle-thumb"></span>
+      </span>
+    </label>
+  </header>
+
+  <main id="mainContent" class="main-content">
+
+    <!-- General Options -->
+    <section class="section">
+      <h2 class="section-title">What to Blur</h2>
+      <div class="option-row">
+        <label class="option-label" for="blurScoreText">
+          <span class="option-icon">📰</span>
+          Score text in articles &amp; search
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="blurScoreText" />
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        </label>
+      </div>
+      <div class="option-row">
+        <label class="option-label" for="blurThumbnails">
+          <span class="option-icon">▶️</span>
+          Video thumbnails on YouTube
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="blurThumbnails" />
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        </label>
+      </div>
+      <div class="option-row">
+        <label class="option-label" for="showRevealButton">
+          <span class="option-icon">👁</span>
+          Click blurred text to reveal
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="showRevealButton" />
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        </label>
+      </div>
+    </section>
+
+    <!-- Basketball -->
+    <section class="section sport-section" id="section-basketball">
+      <div class="sport-header">
+        <button class="sport-expand-btn" data-sport="basketball" aria-expanded="true">
+          <span class="sport-icon">🏀</span>
+          <span class="sport-name">Basketball</span>
+          <span class="chevron">▾</span>
+        </button>
+        <label class="toggle" title="Enable/disable all basketball">
+          <input type="checkbox" id="sport-basketball" data-sport="basketball" />
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        </label>
+      </div>
+      <div class="leagues-list" id="leagues-basketball">
+        <div class="league-row">
+          <label class="league-label" for="league-basketball-nba">
+            <span class="league-badge us">US</span> NBA
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="league-basketball-nba" data-sport="basketball" data-league="nba" />
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </label>
+        </div>
+        <div class="league-row">
+          <label class="league-label" for="league-basketball-ncaa">
+            <span class="league-badge us">US</span> NCAA
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="league-basketball-ncaa" data-sport="basketball" data-league="ncaa" />
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </label>
+        </div>
+        <div class="league-row">
+          <label class="league-label" for="league-basketball-euroleague">
+            <span class="league-badge eu">EU</span> EuroLeague
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="league-basketball-euroleague" data-sport="basketball" data-league="euroleague" />
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </label>
+        </div>
+        <div class="league-row">
+          <label class="league-label" for="league-basketball-fiba">
+            <span class="league-badge int">INT</span> FIBA / World Cup
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="league-basketball-fiba" data-sport="basketball" data-league="fiba" />
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </label>
+        </div>
+        <div class="league-row">
+          <label class="league-label" for="league-basketball-nbl">
+            <span class="league-badge au">AU</span> NBL
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="league-basketball-nbl" data-sport="basketball" data-league="nbl" />
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <!-- Soccer -->
+    <section class="section sport-section" id="section-soccer">
+      <div class="sport-header">
+        <button class="sport-expand-btn" data-sport="soccer" aria-expanded="true">
+          <span class="sport-icon">⚽</span>
+          <span class="sport-name">Soccer / Football</span>
+          <span class="chevron">▾</span>
+        </button>
+        <label class="toggle" title="Enable/disable all soccer">
+          <input type="checkbox" id="sport-soccer" data-sport="soccer" />
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        </label>
+      </div>
+      <div class="leagues-list" id="leagues-soccer">
+        <div class="league-row">
+          <label class="league-label" for="league-soccer-premier_league">
+            <span class="league-badge eng">ENG</span> Premier League
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="league-soccer-premier_league" data-sport="soccer" data-league="premier_league" />
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </label>
+        </div>
+        <div class="league-row">
+          <label class="league-label" for="league-soccer-la_liga">
+            <span class="league-badge esp">ESP</span> La Liga
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="league-soccer-la_liga" data-sport="soccer" data-league="la_liga" />
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </label>
+        </div>
+        <div class="league-row">
+          <label class="league-label" for="league-soccer-serie_a">
+            <span class="league-badge ita">ITA</span> Serie A
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="league-soccer-serie_a" data-sport="soccer" data-league="serie_a" />
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </label>
+        </div>
+        <div class="league-row">
+          <label class="league-label" for="league-soccer-bundesliga">
+            <span class="league-badge ger">GER</span> Bundesliga
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="league-soccer-bundesliga" data-sport="soccer" data-league="bundesliga" />
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </label>
+        </div>
+        <div class="league-row">
+          <label class="league-label" for="league-soccer-ligue_1">
+            <span class="league-badge fra">FRA</span> Ligue 1
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="league-soccer-ligue_1" data-sport="soccer" data-league="ligue_1" />
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </label>
+        </div>
+        <div class="league-row">
+          <label class="league-label" for="league-soccer-mls">
+            <span class="league-badge us">US</span> MLS
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="league-soccer-mls" data-sport="soccer" data-league="mls" />
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </label>
+        </div>
+        <div class="league-row">
+          <label class="league-label" for="league-soccer-champions_league">
+            <span class="league-badge int">INT</span> Champions League
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="league-soccer-champions_league" data-sport="soccer" data-league="champions_league" />
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </label>
+        </div>
+        <div class="league-row">
+          <label class="league-label" for="league-soccer-europa_league">
+            <span class="league-badge int">INT</span> Europa League
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="league-soccer-europa_league" data-sport="soccer" data-league="europa_league" />
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </label>
+        </div>
+        <div class="league-row">
+          <label class="league-label" for="league-soccer-world_cup">
+            <span class="league-badge int">INT</span> World Cup
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="league-soccer-world_cup" data-sport="soccer" data-league="world_cup" />
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </label>
+        </div>
+        <div class="league-row">
+          <label class="league-label" for="league-soccer-eredivisie">
+            <span class="league-badge ned">NED</span> Eredivisie
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="league-soccer-eredivisie" data-sport="soccer" data-league="eredivisie" />
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </label>
+        </div>
+        <div class="league-row">
+          <label class="league-label" for="league-soccer-liga_mx">
+            <span class="league-badge mex">MEX</span> Liga MX
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="league-soccer-liga_mx" data-sport="soccer" data-league="liga_mx" />
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </label>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <span class="footer-status" id="saveStatus"></span>
+  </footer>
+
+  <div id="disabledOverlay" class="disabled-overlay" hidden>
+    <p class="disabled-text">Scoreblinn is paused</p>
+    <p class="disabled-hint">Toggle the switch above to re-enable</p>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
