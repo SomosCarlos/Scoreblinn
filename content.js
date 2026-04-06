@@ -217,10 +217,9 @@
       .replace(/"/g, "&quot;");
   }
 
-  // Walk all text nodes in an element
-  function walkTextNodes(root) {
-    if (!root) return;
-    const walker = document.createTreeWalker(
+  // Build a TreeWalker that skips script/style and already-blurred nodes
+  function makeTextWalker(root) {
+    return document.createTreeWalker(
       root,
       NodeFilter.SHOW_TEXT,
       {
@@ -235,13 +234,64 @@
         }
       }
     );
+  }
 
+  // Walk all text nodes in an element, using per-node context detection
+  function walkTextNodes(root) {
+    if (!root) return;
+    const walker = makeTextWalker(root);
     const nodes = [];
     let node;
-    while ((node = walker.nextNode())) {
-      nodes.push(node);
-    }
+    while ((node = walker.nextNode())) nodes.push(node);
     nodes.forEach(processTextNode);
+  }
+
+  // Walk text nodes with a pre-determined sport (skips context detection).
+  // Used when the page/search query already identifies the sport, so short
+  // snippets that lack inline league keywords still get processed.
+  function walkTextNodesWithSport(root, sport) {
+    if (!root) return;
+    const walker = makeTextWalker(root);
+    const nodes = [];
+    let node;
+    while ((node = walker.nextNode())) nodes.push(node);
+    nodes.forEach((textNode) => processTextNodeForSport(textNode, sport));
+  }
+
+  // processTextNode variant that uses a known sport (bypasses context lookup)
+  function processTextNodeForSport(textNode, sport) {
+    if (textNode[PROCESSED_ATTR]) return;
+    if (!settings || !settings.enabled || !settings.blurScoreText) return;
+    const text = textNode.textContent;
+    if (!text || text.trim().length < 3) return;
+    const parent = textNode.parentElement;
+    if (!parent) return;
+    if (parent.classList && parent.classList.contains(BLUR_CLASS)) return;
+    const tag = parent.tagName;
+    if (tag === "SCRIPT" || tag === "STYLE" || tag === "NOSCRIPT") return;
+
+    const patterns = SCORE_PATTERNS[sport];
+    const validate = SCORE_VALIDATORS[sport];
+    let html = escapeHtml(text);
+    let hasMatch = false;
+
+    for (const pattern of patterns) {
+      pattern.lastIndex = 0;
+      const newHtml = html.replace(pattern, (match) => {
+        if (!validate(match)) return match;
+        hasMatch = true;
+        return `<span class="${BLUR_CLASS}" data-sport="${sport}" title="Click to reveal score">${escapeHtml(match)}</span>`;
+      });
+      html = newHtml;
+    }
+
+    if (hasMatch) {
+      const wrapper = document.createElement("span");
+      wrapper.className = BLUR_WRAP_CLASS;
+      wrapper.innerHTML = html;
+      parent.replaceChild(wrapper, textNode);
+    }
+    textNode[PROCESSED_ATTR] = true;
   }
 
   // ─── YouTube Thumbnail Blurring ───────────────────────────────────────────────
@@ -345,35 +395,85 @@
 
   // ─── Search Result Blurring ───────────────────────────────────────────────────
 
+  // Extract the search query from the URL to use as sport context
+  // e.g. "?q=lakers+warriors+score" → "lakers warriors score"
+  function getSearchQueryContext() {
+    try {
+      const q = new URLSearchParams(window.location.search).get("q") || "";
+      return q.replace(/\+/g, " ").toLowerCase();
+    } catch (_) {
+      return "";
+    }
+  }
+
+  // Broader context getter that also includes the page URL and title
+  function getPageLevelContext() {
+    const query = getSearchQueryContext();
+    const title = (document.title || "").toLowerCase();
+    return `${query} ${title}`;
+  }
+
   function processSearchResults(root) {
     if (!settings || !settings.enabled || !settings.blurScoreText) return;
 
     const hostname = window.location.hostname;
 
-    // Google Search result containers
+    // Google Search — use stable containers (#search, #rso) instead of
+    // class names that change with every Google redesign
     if (hostname.includes("google.")) {
-      const results = (root.querySelectorAll || document.querySelectorAll.bind(document))(
-        ".g, .MjjYud, .tF2Cxc, .yuRUbf, [data-hveid], .BNeawe, .s3v9rd"
+      // Try stable IDs first, fall back to a broad selector sweep
+      const stableContainers = document.querySelectorAll(
+        "#search, #rso, #ires, #res"
       );
-      results.forEach((el) => {
-        if (!el.getAttribute(PROCESSED_ATTR)) {
-          walkTextNodes(el);
-        }
-      });
+      const targets = stableContainers.length > 0
+        ? stableContainers
+        : document.querySelectorAll("div[data-async-context], div[jscontroller]");
+
+      // Inject page-level context (search query + title) so short snippets
+      // without inline league keywords still get matched
+      const pageCtx = getPageLevelContext();
+      const pageSport = getMatchingSport(pageCtx);
+
+      if (pageSport) {
+        // Page is clearly sports-related — scan the whole results area
+        targets.forEach((el) => {
+          if (!el.getAttribute(PROCESSED_ATTR)) {
+            el.setAttribute(PROCESSED_ATTR, "1");
+            walkTextNodesWithSport(el, pageSport);
+          }
+        });
+      } else {
+        // Fall back to per-snippet context detection
+        targets.forEach((el) => walkTextNodes(el));
+      }
     }
 
     // Bing Search
     if (hostname.includes("bing.com")) {
-      const results = document.querySelectorAll(".b_algo, .b_title, .b_caption");
-      results.forEach((el) => walkTextNodes(el));
+      const pageCtx = getPageLevelContext();
+      const pageSport = getMatchingSport(pageCtx);
+      const results = document.querySelectorAll(
+        "#b_results, .b_algo, .b_ans, .b_title, .b_caption"
+      );
+      if (pageSport) {
+        results.forEach((el) => walkTextNodesWithSport(el, pageSport));
+      } else {
+        results.forEach((el) => walkTextNodes(el));
+      }
     }
 
     // DuckDuckGo
     if (hostname.includes("duckduckgo.com")) {
+      const pageCtx = getPageLevelContext();
+      const pageSport = getMatchingSport(pageCtx);
       const results = document.querySelectorAll(
-        "[data-result], .result, .result__body, .result__title, .result__snippet"
+        "#links, [data-result], .result, .result__body"
       );
-      results.forEach((el) => walkTextNodes(el));
+      if (pageSport) {
+        results.forEach((el) => walkTextNodesWithSport(el, pageSport));
+      } else {
+        results.forEach((el) => walkTextNodes(el));
+      }
     }
   }
 
@@ -419,8 +519,16 @@
 
     if (isSearchEngine) {
       processSearchResults(document);
-    } else if (isSportsSite || hostname.includes("youtube.com")) {
+    } else if (hostname.includes("youtube.com")) {
+      // YouTube: thumbnail blurring handled above; also scan page text
       walkTextNodes(document.body);
+    } else if (isSportsSite) {
+      walkTextNodes(document.body);
+    } else {
+      // Unknown site — still try if the URL/title signals a sport context
+      const pageCtx = `${window.location.href} ${document.title}`.toLowerCase();
+      const sport = getMatchingSport(pageCtx);
+      if (sport) walkTextNodesWithSport(document.body, sport);
     }
   }
 
